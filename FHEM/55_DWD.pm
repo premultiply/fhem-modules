@@ -58,17 +58,17 @@ sub DWD_Define($$) {
 	my ($hash, $def) = @_;
 	my @a = split("[ \t][ \t]*", $def);
 
-	return "syntax: define <name> DWD <username> <password> [<host>] [<interval>]"  if ( int(@a) < 4 or int(@a) > 6 );
+	return "syntax: define <name> DWD <username> <password> [<interval> [<host>]]"  if ( int(@a) < 4 or int(@a) > 6 );
 
 	my $name = $a[0];
 
 	my $interval = 1800;
-	if ( int(@a) >= 5 ) { $interval = $a[5]; }
+	if ( int(@a) >= 4 ) { $interval = $a[4]; }
 	if ( $interval < 300 ) { $interval = 300; }
 
 	$hash->{USERNAME} = $a[2];
 	$hash->{PASSWORD} = $a[3];
-	$hash->{HOST} = defined($a[4]) ? $a[4] : "ftp-outgoing2.dwd.de";
+	$hash->{HOST} = defined($a[5]) ? $a[5] : "ftp-outgoing2.dwd.de";
 	$hash->{INTERVAL} = $interval;
 
 	$hash->{STATE} = "Initialized";
