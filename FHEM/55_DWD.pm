@@ -261,8 +261,9 @@ sub DWD_RetrieveData($$) {
 
 				$sList = encode('UTF-8', join(",", @stations));
 
-				#$fc =~ /\s(\d{2})\.(\d{2})\.(\d{4}),\s(\d{2}):(\d{2})\s/;
-				#readingsSingleUpdate($hash, 'last_update', "$3-$2-$1 $4:$5:00", 1);
+				if ($fc =~ /\s(\d{2})\.(\d{2})\.(\d{4}),\s(\d{2}):(\d{2})\s/) {
+					readingsSingleUpdate($hash, 'observation_date', "$3-$2-$1 $4:$5:00", 1);
+				}
 			}
 			$ftp->quit;
 		}
