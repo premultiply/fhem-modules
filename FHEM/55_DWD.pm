@@ -1,4 +1,4 @@
-# $Id: 55_DWD.pm 0 2016-05-08 00:00:00Z premultiply $
+# $Id: 55_DWD.pm 0 2016-09-12 00:00:00Z premultiply $
 ####################################################################################################
 #
 #	55_DWD.pm
@@ -38,7 +38,8 @@ use Net::FTP;
 use HTML::Entities;
 use HTML::TableExtract;
 
-my ($sList);
+my ($sOList);
+my ($sFList);
 
 sub DWD_Initialize($) {
 	my ($hash) = @_;
@@ -51,24 +52,24 @@ sub DWD_Initialize($) {
 	$hash->{GetFn}		=	"DWD_Get";
 	$hash->{SetFn}		=	"DWD_Set";
 
-	$hash->{AttrList} .= "disable:0,1 station ".$readingFnAttributes;
+	$hash->{AttrList} .= "disable:0,1 stationObservation stationForecast ".$readingFnAttributes;
 }
 
 sub DWD_Define($$) {
 	my ($hash, $def) = @_;
 	my @a = split("[ \t][ \t]*", $def);
 
-	return "syntax: define <name> DWD <username> <password> [<interval> [<host>]]"  if ( int(@a) < 4 or int(@a) > 6 );
+	return "syntax: define <name> DWD <username> <password> [<host>] [<interval>]"  if ( int(@a) < 4 or int(@a) > 6 );
 
 	my $name = $a[0];
 
 	my $interval = 1800;
-	if ( int(@a) >= 4 ) { $interval = $a[4]; }
+	if ( int(@a) >= 5 ) { $interval = $a[5]; }
 	if ( $interval < 300 ) { $interval = 300; }
 
 	$hash->{USERNAME} = $a[2];
 	$hash->{PASSWORD} = $a[3];
-	$hash->{HOST} = defined($a[5]) ? $a[5] : "ftp-outgoing2.dwd.de";
+	$hash->{HOST} = defined($a[4]) ? $a[4] : "ftp-outgoing2.dwd.de";
 	$hash->{INTERVAL} = $interval;
 
 	$hash->{STATE} = "Initialized";
@@ -92,25 +93,37 @@ sub DWD_Get($@) {
 				"actual:noArg ".
 				#"summary1h:noArg ".
 				#"summary12h:noArg ".
-				"summary24h:noArg ";
+				"summary24h:noArg ".
+				"forecast:noArg ";
 
 	my $command = lc($a[1]);
 
 	given($command) {
 		when("actual") {
-			DWD_RetrieveData($hash, '4_U');
+			DWD_RetrieveObservationData($hash, '4_U');
 			break;
 			}
 		when("summary1h") {
-			DWD_RetrieveData($hash, '14_U');
+			DWD_RetrieveObservationData($hash, '14_U');
 			break;
 			}
 		when("summary12h") {
-			DWD_RetrieveData($hash, '(?:06|18)14_U');
+			DWD_RetrieveObservationData($hash, '(?:06|18)14_U');
 			break;
 			}
 		when("summary24h") {
-			DWD_RetrieveData($hash, '0645');
+			DWD_RetrieveObservationData($hash, '0645');
+			break;
+			}
+		when("forecast") {
+			DWD_RetrieveForecastData($hash, 'heute_frueh', 'd0_frueh_');
+			DWD_RetrieveForecastData($hash, 'heute_spaet', 'd0_spaet_');
+			DWD_RetrieveForecastData($hash, 'morgen_frueh', 'd1_frueh_');
+			DWD_RetrieveForecastData($hash, 'morgen_spaet', 'd1_spaet_');
+			DWD_RetrieveForecastData($hash, 'uebermorgen_frueh', 'd2_frueh_');
+			DWD_RetrieveForecastData($hash, 'uebermorgen_spaet', 'd2_spaet_');
+			DWD_RetrieveForecastData($hash, 'Tag4_frueh', 'd3_frueh_');
+			DWD_RetrieveForecastData($hash, 'Tag4_spaet', 'd3_spaet_');
 			break;
 			}
 		default { return $usage; };
@@ -124,10 +137,11 @@ sub DWD_Set($@) {
 	my $name = $hash->{NAME};
 	my $usage =	"Unknown argument, choose one of ".
 				"clear:noArg ".
-				"station:$sList ".
+				"stationObservation:$sOList ".
+				"stationForecast:$sFList ".
 				"update:noArg ";
 
-	my $command = lc($a[1]);
+	my $command = $a[1];
 	my $parameter = $a[2] if(defined($a[2]));
 
 	given($command) {
@@ -139,8 +153,13 @@ sub DWD_Set($@) {
 			DWD_PollTimer($hash);
 			break;
 			}
-		when("station") {
-			$attr{$name}{station} = $parameter;
+		when("stationObservation") {
+			$attr{$name}{stationObservation} = $parameter;
+			DWD_PollTimer($hash);
+			break;
+			}
+		when("stationForecast") {
+			$attr{$name}{stationForecast} = $parameter;
 			DWD_PollTimer($hash);
 			break;
 			}
@@ -150,7 +169,7 @@ sub DWD_Set($@) {
 	return undef;
 }
 
-sub DWD_RetrieveData($$) {
+sub DWD_RetrieveObservationData($$) {
 	my ($hash, $pattern) = @_;
 	my $name = $hash->{NAME};
 
@@ -201,7 +220,7 @@ sub DWD_RetrieveData($$) {
 				foreach (@data) {
 					$selstation = @{$_}[0];
 					$selstation =~ s/\s/_/g;
-					if ( encode('UTF-8', $selstation) eq AttrVal($name, "station", "") ) {
+					if ( encode('UTF-8', $selstation) eq AttrVal($name, "stationObservation", "") ) {
 						my @row = @{$_};
 						readingsBeginUpdate($hash);
 						my $i = 0;
@@ -259,11 +278,90 @@ sub DWD_RetrieveData($$) {
 					}
 				}
 
-				$sList = encode('UTF-8', join(",", @stations));
+				$sOList = encode('UTF-8', join(",", @stations));
 
 				if ($fc =~ /\s(\d{2})\.(\d{2})\.(\d{4}),\s(\d{2}):(\d{2})\s/) {
 					readingsSingleUpdate($hash, 'observation_date', "$3-$2-$1 $4:$5:00", 1);
 				}
+			}
+			$ftp->quit;
+		}
+	}
+}
+
+sub DWD_RetrieveForecastData($$$) {
+	my ($hash, $pattern, $prefix) = @_;
+	my $name = $hash->{NAME};
+
+	my $fc;
+
+	my $proxyHost	= AttrVal($name, "proxyHost", "");
+	my $proxyType	= AttrVal($name, "proxyType", "");
+	my $passiveFTP	= AttrVal($name, "passiveFTP", 1);
+
+	eval {
+		my $ftp = Net::FTP->new($hash->{HOST},
+								Debug        => 0,
+								Timeout      => 10,
+								Passive      => $passiveFTP,
+								FirewallType => $proxyType,
+								Firewall     => $proxyHost);
+		if (defined($ftp)) {
+			$ftp->login($hash->{USERNAME}, $hash->{PASSWORD});
+			$ftp->cwd("gds/specials/forecasts/tables/germany/");
+			$ftp->binary;
+
+			my @files = grep /Daten_Deutschland_${pattern}_HTML$/, $ftp->ls();
+
+			if (@files) {
+				@files = reverse(sort(@files));
+				my $datafile = shift(@files);
+				Log3 $hash, 1, "file to download: $datafile";
+				my ($file_content, $file_handle);
+				open($file_handle, '>', \$file_content);
+				$ftp->get($datafile, $file_handle);
+				$fc = decode_entities(decode('ISO-8859-1', $file_content));
+				
+				my $te = HTML::TableExtract->new();
+				$te->parse($fc);
+				my $table = $te->first_table_found();
+
+				my @data = $table->rows;
+
+				my @header = @{shift(@data)};
+				map(s/[^\w]//g, @header);
+
+				my @stations;
+				push(@stations, @{$_}[0]) for (@data);
+				map(s/\s/_/g, @stations);
+
+				my $selstation;
+
+				foreach (@data) {
+					$selstation = @{$_}[0];
+					$selstation =~ s/\s/_/g;
+					if ( encode('UTF-8', $selstation) eq AttrVal($name, "stationObservation", "") ) {
+						my @row = @{$_};
+						readingsBeginUpdate($hash);
+						my $i = 0;
+						my $v;
+						foreach (@header) {
+							if ($i >= 2) { #Stationsname und Stationshöhe über NN überspringen
+								$v = $row[$i];
+								$v =~ s/^\s+|\s+$//g;
+								readingsBulkUpdate($hash, encode('UTF-8', $prefix.lc($_)), encode('UTF-8', $v));
+							}
+							$i++;
+						}
+						readingsEndUpdate($hash, 1);
+					}
+				}
+
+				$sFList = encode('UTF-8', join(",", @stations));
+
+				#if ($fc =~ /\s(\d{2})\.(\d{2})\.(\d{4}),\s(\S+)\s/) {
+				#	readingsSingleUpdate($hash, $prefix.'date', "$3-$2-$1", 1);
+				#}
 			}
 			$ftp->quit;
 		}
@@ -278,7 +376,15 @@ sub DWD_PollTimer($) {
 	InternalTimer(gettimeofday()+$hash->{INTERVAL}, "DWD_PollTimer", $hash, 0);
 	return if ( AttrVal($name, "disable", 0) > 0 );
 
-	DWD_RetrieveData($hash, '4_U');
+	DWD_RetrieveObservationData($hash, '4_U');
+	DWD_RetrieveForecastData($hash, 'heute_frueh', 'd0_frueh_');
+	DWD_RetrieveForecastData($hash, 'heute_spaet', 'd0_spaet_');
+	DWD_RetrieveForecastData($hash, 'morgen_frueh', 'd1_frueh_');
+	DWD_RetrieveForecastData($hash, 'morgen_spaet', 'd1_spaet_');
+	DWD_RetrieveForecastData($hash, 'uebermorgen_frueh', 'd2_frueh_');
+	DWD_RetrieveForecastData($hash, 'uebermorgen_spaet', 'd2_spaet_');
+	DWD_RetrieveForecastData($hash, 'Tag4_frueh', 'd3_frueh_');
+	DWD_RetrieveForecastData($hash, 'Tag4_spaet', 'd3_spaet_');
 	#BlockingCall("_retrieveData", $hash, "_finishedData", 60, "_abortedData", $hash);
 }
 
@@ -293,8 +399,7 @@ sub DWD_PollTimer($) {
 <a name="DWD"></a>
 <h3>DWD</h3>
 <ul>
-	This module provides weather conditions from <a href="http://www.dwd.de/grundversorgung">GDS service</a> 
-	generated by <a href="http://www.dwd.de">DWD</a> (Deutscher Wetterdienst). Current conditions are provided for the included DWD stations at 30 minutes interval by GDS.
+	This module provides weather observations and forcasts from <a href="http://www.dwd.de/grundversorgung">GDS service</a> generated by <a href="http://www.dwd.de">DWD</a> (Deutscher Wetterdienst). Current observations are provided for the included DWD stations at 30 minutes interval by GDS. Forecasts are availible for the next 4 days.
 	<br><br>
 	
 	<b>Prerequesits</b>
@@ -331,7 +436,8 @@ sub DWD_PollTimer($) {
 		Forces the retrieval of the weather data and station list. The next automatic retrieval is scheduled to occur <code>interval</code> seconds later.<br>
 		<br><br>
 
-		<code>set &lt;name&gt; station</code><br>
+		<code>set &lt;name&gt; stationObservation</code><br>
+		<code>set &lt;name&gt; stationForecast</code><br>
 		<br>
 		Select station from list. If list is empty please do update first to download list from GDS service.<br>
 	</ul>
@@ -342,7 +448,7 @@ sub DWD_PollTimer($) {
 	<ul>
 		<code>get &lt;name&gt; actual</code><br>
 		<br>
-		Retrieve actual weather conditions for selected station and update readings. Update timer is not restarted.<br>
+		Retrieve actual weather observations for selected station and update readings. Update timer is not restarted.<br>
 		<br><br>
 
 		<code>get &lt;name&gt; summery24h</code><br>
@@ -355,7 +461,8 @@ sub DWD_PollTimer($) {
 	<b>Attributes</b><br>
 	<ul>
 		<li><b>disable</b> - if set, gds will not try to connect to internet.</li>
-		<li><b>station</b> - defines station for which the data is retrieved.</li>
+		<li><b>stationObservation</b> - defines station for which the observation data is retrieved.</li>
+		<li><b>stationForecast</b> - defines station for which the forecast data is retrieved.</li>
 		<li><b>passiveFTP</b> - set to 1 to use passive FTP transfer.</li>
 		<li><b>proxyHost</b> - define ftp proxy hostname in format &lt;hostname&gt;:&lt;port&gt;.</li>
 		<li><b>proxyType</b> - define ftp proxy type in a value 0..7 please refer to the
