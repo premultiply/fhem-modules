@@ -59,7 +59,7 @@ sub DWD_Define($$) {
 	my ($hash, $def) = @_;
 	my @a = split("[ \t][ \t]*", $def);
 
-	return "syntax: define <name> DWD <username> <password> [<host>] [<interval>]"  if ( int(@a) < 4 or int(@a) > 6 );
+	return "syntax: define <name> DWD <username> <password> [<interval> [<host>]]"  if ( int(@a) < 4 or int(@a) > 6 );
 
 	my $name = $a[0];
 
