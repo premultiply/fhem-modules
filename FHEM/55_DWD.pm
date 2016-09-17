@@ -55,7 +55,7 @@ sub DWD_Initialize($) {
 	$hash->{GetFn}		=	"DWD_Get";
 	$hash->{SetFn}		=	"DWD_Set";
 
-	$hash->{AttrList} .= "disable:0,1 stationObservation stationForecast ".$readingFnAttributes;
+	$hash->{AttrList} .= "disable:0,1 station ".$readingFnAttributes;
 }
 
 sub DWD_Define($$) {
