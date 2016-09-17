@@ -30,10 +30,13 @@ package main;
 
 use strict;
 use warnings;
-
 use feature "switch";
-
 use Encode;
+
+use utf8;
+our(%German_Characters) = qw(Ä AE   ä ae   Ö OE   ö oe   Ü UE   ü ue   ß ss   € EUR);
+
+use Text::Unidecode qw(unidecode);
 use Net::FTP;
 use HTML::Entities;
 use HTML::TableExtract;
@@ -116,14 +119,7 @@ sub DWD_Get($@) {
 			break;
 			}
 		when("forecast") {
-			DWD_RetrieveForecastData($hash, 'heute_frueh', 'd0_frueh_');
-			DWD_RetrieveForecastData($hash, 'heute_spaet', 'd0_spaet_');
-			DWD_RetrieveForecastData($hash, 'morgen_frueh', 'd1_frueh_');
-			DWD_RetrieveForecastData($hash, 'morgen_spaet', 'd1_spaet_');
-			DWD_RetrieveForecastData($hash, 'uebermorgen_frueh', 'd2_frueh_');
-			DWD_RetrieveForecastData($hash, 'uebermorgen_spaet', 'd2_spaet_');
-			DWD_RetrieveForecastData($hash, 'Tag4_frueh', 'd3_frueh_');
-			DWD_RetrieveForecastData($hash, 'Tag4_spaet', 'd3_spaet_');
+			DWD_RetrieveForecastData($hash);
 			break;
 			}
 		default { return $usage; };
@@ -146,7 +142,9 @@ sub DWD_Set($@) {
 
 	given($command) {
 		when("clear") {
-			CommandDeleteReading(undef, "$name _.*");
+			CommandDeleteReading(undef, "$name .*");
+			$sOList = "";
+			$sFList = "";
 			break;
 			}
 		when("update") {
@@ -154,13 +152,13 @@ sub DWD_Set($@) {
 			break;
 			}
 		when("stationObservation") {
-			$attr{$name}{stationObservation} = $parameter;
-			DWD_PollTimer($hash);
+			$attr{$name}{station} = $parameter;
+			#DWD_PollTimer($hash);
 			break;
 			}
 		when("stationForecast") {
-			$attr{$name}{stationForecast} = $parameter;
-			DWD_PollTimer($hash);
+			$attr{$name}{station} = $parameter;
+			#DWD_PollTimer($hash);
 			break;
 			}
 		default { return $usage; };
@@ -213,64 +211,66 @@ sub DWD_RetrieveObservationData($$) {
 
 				my @stations;
 				push(@stations, @{$_}[0]) for (@data);
-				map(s/\s/_/g, @stations);
+				map(s/^\s+|\s+$//g, @stations); #Trim
+				map(s/\s/_/g, @stations); #Leerzeichen durch _ ersetzen
 
 				my $selstation;
 				
 				foreach (@data) {
 					$selstation = @{$_}[0];
-					$selstation =~ s/\s/_/g;
-					if ( encode('UTF-8', $selstation) eq AttrVal($name, "stationObservation", "") ) {
+					$selstation =~ s/^\s+|\s+$//g; #Trim
+					$selstation =~ s/\s/_/g; #Leerzeichen durch _ ersetzen
+					if ( encode('UTF-8', $selstation) eq AttrVal($name, "station", "") ) {
 						my @row = @{$_};
 						readingsBeginUpdate($hash);
 						my $i = 0;
 						my $v;
 						foreach (@header) {
 							$v = $row[$i];
-							$v =~ s/^\s+|\s+$//g;
+							$v =~ s/^\s+|\s+$//g; #Trim
 							given(lc($_)) {
 								when("temp") {
-									readingsBulkUpdate($hash, "temperature", "$v °C");
+									readingsBulkUpdate($hash, "temperature", encode('UTF-8', $v.' °C'));
 									break;
 									}
 								when("u") {
-									readingsBulkUpdate($hash, "humidity", "$v %");
+									readingsBulkUpdate($hash, "humidity", encode('UTF-8', $v.' %'));
 									break;
 									}
 								when("luftd") {
-									readingsBulkUpdate($hash, "pressure", "$v hPa");
+									readingsBulkUpdate($hash, "pressure", encode('UTF-8', $v.' hPa'));
 									break;
 									}
 								when("ff") {
-									readingsBulkUpdate($hash, "wind", "$v km/h");
+									readingsBulkUpdate($hash, "wind", encode('UTF-8', $v.' km/h'));
 									break;
 									}
 								when("fx") {
-									readingsBulkUpdate($hash, "wind_peak", "$v km/h");
+									readingsBulkUpdate($hash, "wind_peak", encode('UTF-8', $v.' km/h'));
 									break;
 									}
 								when("dd") {
 									if ($v ne '--') {
 										my %wd = (N => 0, NO => 45, O => 90, SO => 135, S => 180, SW => 225, W => 270, NW => 315, '-' => '');
-										readingsBulkUpdate($hash, "wind_direction", $wd{$v}. " Grad");
+										readingsBulkUpdate($hash, "wind_direction", encode('UTF-8', $wd{$v}.' Grad'));
 									}
 									break;
 									}
 								when("rr1") {
-									readingsBulkUpdate($hash, "rain", "$v l/m²");
-									readingsBulkUpdate($hash, "rain_30min", $v-ReadingsVal($name, '_rr30', 0)." l/m²");
+									readingsBulkUpdate($hash, "rain", encode('UTF-8', $v.' l/m²'));
+									readingsBulkUpdate($hash, "rain_30min", encode('UTF-8', $v-ReadingsVal($name, '_rr30', 0).' l/m²'));
 									break;
 									}
 								when("rr30") {
-									readingsBulkUpdate($hash, "rain_30min", "$v l/m²");
+									readingsBulkUpdate($hash, "rain_30min", encode('UTF-8', $v.' l/m²'));
 									break;
 									}
 									when("sss") {
-									readingsBulkUpdate($hash, "snow", "$v cm");
+									readingsBulkUpdate($hash, "snow", encode('UTF-8', $v.' cm'));
 									break;
 									}
 							}
-							readingsBulkUpdate($hash, encode('UTF-8', "_".lc($_)), encode('UTF-8', $v));
+							readingsBulkUpdate($hash, ascii_ger("_".lc($_)), encode('UTF-8', $v));
 							$i++;
 						}
 						readingsBulkUpdate($hash, "state", "T: ".ReadingsVal($name, '_temp', '-')." H: ".ReadingsVal($name, '_u', '-')." P: ".ReadingsVal($name, '_luftd', '-')." W: ".ReadingsVal($name, '_ff', '-'));
@@ -289,8 +289,8 @@ sub DWD_RetrieveObservationData($$) {
 	}
 }
 
-sub DWD_RetrieveForecastData($$$) {
-	my ($hash, $pattern, $prefix) = @_;
+sub DWD_RetrieveForecastData($) {
+	my ($hash) = @_;
 	my $name = $hash->{NAME};
 
 	my $fc;
@@ -311,11 +311,11 @@ sub DWD_RetrieveForecastData($$$) {
 			$ftp->cwd("gds/specials/forecasts/tables/germany/");
 			$ftp->binary;
 
-			my @files = grep /Daten_Deutschland_${pattern}_HTML$/, $ftp->ls();
+			my @files = grep /Daten_Deutschland_.+_.+_HTML$/, $ftp->ls();
 
-			if (@files) {
-				@files = reverse(sort(@files));
-				my $datafile = shift(@files);
+			foreach (@files) {
+				my $datafile = $_;
+				my ($prefix) = $_ =~ /Daten_Deutschland_(.+)_HTML$/;
 				Log3 $hash, 1, "file to download: $datafile";
 				my ($file_content, $file_handle);
 				open($file_handle, '>', \$file_content);
@@ -333,35 +333,35 @@ sub DWD_RetrieveForecastData($$$) {
 
 				my @stations;
 				push(@stations, @{$_}[0]) for (@data);
-				map(s/\s/_/g, @stations);
+				map(s/^\s+|\s+$//g, @stations); #Trim
+				map(s/\s/_/g, @stations); #Leerzeichen durch _ ersetzen
 
 				my $selstation;
 
 				foreach (@data) {
 					$selstation = @{$_}[0];
-					$selstation =~ s/\s/_/g;
-					if ( encode('UTF-8', $selstation) eq AttrVal($name, "stationObservation", "") ) {
+					$selstation =~ s/^\s+|\s+$//g; #Trim
+					$selstation =~ s/\s/_/g; #Leerzeichen durch _ ersetzen
+					if ( encode('UTF-8', $selstation) eq AttrVal($name, "station", "") ) {
 						my @row = @{$_};
 						readingsBeginUpdate($hash);
 						my $i = 0;
 						my $v;
+						my $header;
 						foreach (@header) {
 							if ($i >= 2) { #Stationsname und Stationshöhe über NN überspringen
 								$v = $row[$i];
-								$v =~ s/^\s+|\s+$//g;
-								readingsBulkUpdate($hash, encode('UTF-8', $prefix.lc($_)), encode('UTF-8', $v));
+								$v =~ s/^\s+|\s+$//g; #Trim
+								($header) = $fc =~ /<h4>(.*)<\/h4>/i;
+								readingsBulkUpdate($hash, ascii_ger(lc($prefix.'_'.$_)), encode('UTF-8', $v));
+								readingsBulkUpdate($hash, ascii_ger(lc($prefix.'_headline')), encode('UTF-8', $header));
 							}
 							$i++;
 						}
 						readingsEndUpdate($hash, 1);
 					}
 				}
-
 				$sFList = encode('UTF-8', join(",", @stations));
-
-				#if ($fc =~ /\s(\d{2})\.(\d{2})\.(\d{4}),\s(\S+)\s/) {
-				#	readingsSingleUpdate($hash, $prefix.'date', "$3-$2-$1", 1);
-				#}
 			}
 			$ftp->quit;
 		}
@@ -377,15 +377,15 @@ sub DWD_PollTimer($) {
 	return if ( AttrVal($name, "disable", 0) > 0 );
 
 	DWD_RetrieveObservationData($hash, '4_U');
-	DWD_RetrieveForecastData($hash, 'heute_frueh', 'd0_frueh_');
-	DWD_RetrieveForecastData($hash, 'heute_spaet', 'd0_spaet_');
-	DWD_RetrieveForecastData($hash, 'morgen_frueh', 'd1_frueh_');
-	DWD_RetrieveForecastData($hash, 'morgen_spaet', 'd1_spaet_');
-	DWD_RetrieveForecastData($hash, 'uebermorgen_frueh', 'd2_frueh_');
-	DWD_RetrieveForecastData($hash, 'uebermorgen_spaet', 'd2_spaet_');
-	DWD_RetrieveForecastData($hash, 'Tag4_frueh', 'd3_frueh_');
-	DWD_RetrieveForecastData($hash, 'Tag4_spaet', 'd3_spaet_');
+	DWD_RetrieveForecastData($hash);
 	#BlockingCall("_retrieveData", $hash, "_finishedData", 60, "_abortedData", $hash);
+}
+
+sub ascii_ger($) {
+	my ($german_text) = @_;
+	$german_text =~ s/([ÄäÖöÜüß€])/$German_Characters{$1}/g;
+	$german_text = unidecode( $german_text );
+	return $german_text;
 }
 
 
@@ -399,13 +399,13 @@ sub DWD_PollTimer($) {
 <a name="DWD"></a>
 <h3>DWD</h3>
 <ul>
-	This module provides weather observations and forcasts from <a href="http://www.dwd.de/grundversorgung">GDS service</a> generated by <a href="http://www.dwd.de">DWD</a> (Deutscher Wetterdienst). Current observations are provided for the included DWD stations at 30 minutes interval by GDS. Forecasts are availible for the next 4 days.
+	This module provides weather observations and forcasts from <a href="http://www.dwd.de/grundversorgung">GDS service</a> generated by <a href="http://www.dwd.de">DWD</a> (Deutscher Wetterdienst). Current observations are provided for the included DWD stations at 30 minutes interval by GDS. Forecasts are availible for the next 4 days. Not all stations provide observations and forecasts.
 	<br><br>
 	
 	<b>Prerequesits</b>
 	<ul>
 		<li>Module uses following additional Perl modules:<br>
-			<code>Net::FTP, HTML::Entities and HTML::TableExtract</code><br>
+			<code>Text::Unidecode, Net::FTP, HTML::Entities and HTML::TableExtract</code><br>
 			If not already installed in your environment, please install them using appropriate commands from your environment.</li>
 		<li>Internet connection</li>
 		<li>GDS FTP account (free). Register for new account at <a href="http://www.dwd.de/grundversorgung">http://www.dwd.de/grundversorgung</a></li>
@@ -428,7 +428,7 @@ sub DWD_PollTimer($) {
 	<ul>
 		<code>set &lt;name&gt; clear</code><br>
 		<br>
-		Delete all _* readings<br>
+		Delete all readings and clear station names<br>
 		<br><br>
 
 		<code>set &lt;name&gt; update</code><br>
@@ -461,7 +461,7 @@ sub DWD_PollTimer($) {
 	<b>Attributes</b><br>
 	<ul>
 		<li><b>disable</b> - if set, gds will not try to connect to internet.</li>
-		<li><b>stationObservation</b> - defines station for which the observation data is retrieved.</li>
+		<li><b>station</b> - defines station for which the weather data is retrieved.</li>
 		<li><b>stationForecast</b> - defines station for which the forecast data is retrieved.</li>
 		<li><b>passiveFTP</b> - set to 1 to use passive FTP transfer.</li>
 		<li><b>proxyHost</b> - define ftp proxy hostname in format &lt;hostname&gt;:&lt;port&gt;.</li>
