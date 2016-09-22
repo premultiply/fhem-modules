@@ -1,4 +1,4 @@
-# $Id: 55_DWD.pm 0 2016-09-12 00:00:00Z premultiply $
+# $Id: 55_DWD.pm 0 2016-09-23 00:00:00Z premultiply $
 ####################################################################################################
 #
 #	55_DWD.pm
@@ -67,7 +67,7 @@ sub DWD_Define($$) {
 	my $name = $a[0];
 
 	my $interval = 1800;
-	if ( int(@a) >= 4 ) { $interval = $a[4]; }
+	if ( int(@a) > 4 ) { $interval = $a[4]; }
 	if ( $interval < 300 ) { $interval = 300; }
 
 	$hash->{USERNAME} = $a[2];
@@ -273,7 +273,7 @@ sub DWD_RetrieveObservationData($$) {
 							readingsBulkUpdate($hash, ascii_ger("_".lc($_)), encode('UTF-8', $v));
 							$i++;
 						}
-						readingsBulkUpdate($hash, "state", "T: ".ReadingsVal($name, '_temp', '-')." H: ".ReadingsVal($name, '_u', '-')." P: ".ReadingsVal($name, '_luftd', '-')." W: ".ReadingsVal($name, '_ff', '-'));
+						readingsBulkUpdate($hash, "state", "T: ".ReadingsVal($name, '_temp', '-')." H: ".ReadingsVal($name, '_u', '-')." P: ".ReadingsVal($name, '_luftd', '-')." W: ".ReadingsVal($name, '_ff', '-')." R: ".ReadingsVal($name, '_rr30', '-'));
 						readingsEndUpdate($hash, 1);
 					}
 				}
