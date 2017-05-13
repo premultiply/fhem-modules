@@ -1,4 +1,4 @@
-# $Id: 55_DWD.pm 0 2016-09-23 00:00:00Z premultiply $
+# $Id: 55_DWD.pm 0 2017-05-13 00:00:00Z premultiply $
 ####################################################################################################
 #
 #	55_DWD.pm
@@ -194,7 +194,7 @@ sub DWD_RetrieveObservationData($$) {
 			if (@files) {
 				@files = reverse(sort(@files));
 				my $datafile = shift(@files);
-				Log3 $hash, 1, "file to download: $datafile";
+				Log3 $hash, 4, "file to download: $datafile";
 				my ($file_content, $file_handle);
 				open($file_handle, '>', \$file_content);
 				$ftp->get($datafile, $file_handle);
@@ -316,7 +316,7 @@ sub DWD_RetrieveForecastData($) {
 			foreach (@files) {
 				my $datafile = $_;
 				my ($prefix) = $_ =~ /Daten_Deutschland_(.+)_HTML$/;
-				Log3 $hash, 1, "file to download: $datafile";
+				Log3 $hash, 4, "file to download: $datafile";
 				my ($file_content, $file_handle);
 				open($file_handle, '>', \$file_content);
 				$ftp->get($datafile, $file_handle);
