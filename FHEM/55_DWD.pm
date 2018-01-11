@@ -1,4 +1,4 @@
-# $Id: 55_DWD.pm 0 2017-05-13 00:00:00Z premultiply $
+# $Id: 55_DWD.pm 0 2018-01-11 00:00:00Z premultiply $
 ####################################################################################################
 #
 #	55_DWD.pm
@@ -70,9 +70,9 @@ sub DWD_Define($$) {
 	if ( int(@a) > 4 ) { $interval = $a[4]; }
 	if ( $interval < 300 ) { $interval = 300; }
 
-	$hash->{USERNAME} = $a[2];
-	$hash->{PASSWORD} = $a[3];
-	$hash->{HOST} = defined($a[5]) ? $a[5] : "ftp-outgoing2.dwd.de";
+	$hash->{USERNAME} = "anonymous" #$a[2];
+	$hash->{PASSWORD} = "" #$a[3];
+	$hash->{HOST} = defined($a[5]) ? $a[5] : "download.dwd.de";
 	$hash->{INTERVAL} = $interval;
 
 	$hash->{STATE} = "Initialized";
@@ -186,7 +186,7 @@ sub DWD_RetrieveObservationData($$) {
 								Firewall     => $proxyHost);
 		if (defined($ftp)) {
 			$ftp->login($hash->{USERNAME}, $hash->{PASSWORD});
-			$ftp->cwd("gds/specials/observations/tables/germany/");
+			$ftp->cwd("pub/data/observations/tables/germany/");
 			$ftp->binary;
 
 			my @files = grep /SXDL99_DWAV_.*${pattern}_HTML$/, $ftp->ls();
@@ -308,7 +308,7 @@ sub DWD_RetrieveForecastData($) {
 								Firewall     => $proxyHost);
 		if (defined($ftp)) {
 			$ftp->login($hash->{USERNAME}, $hash->{PASSWORD});
-			$ftp->cwd("gds/specials/forecasts/tables/germany/");
+			$ftp->cwd("pub/data/forecasts/tables/germany/");
 			$ftp->binary;
 
 			my @files = grep /Daten_Deutschland_.+_.+_HTML$/, $ftp->ls();
@@ -408,7 +408,6 @@ sub ascii_ger($) {
 			<code>Text::Unidecode, Net::FTP, HTML::Entities and HTML::TableExtract</code><br>
 			If not already installed in your environment, please install them using appropriate commands from your environment.</li>
 		<li>Internet connection</li>
-		<li>GDS FTP account (free). Register for new account at <a href="http://www.dwd.de/grundversorgung">http://www.dwd.de/grundversorgung</a></li>
 	</ul>
 	<br><br>
 	
@@ -417,9 +416,9 @@ sub ascii_ger($) {
 	<ul>
 		<code>define &lt;name&gt; DWD &lt;username&gt; &lt;password&gt; [&lt;interval&gt; [&lt;host&gt;]]</code><br>
 		<br>
-		Pass the <code>username</code> and <code>password</code> for your GDS account.<br>
+		Pass any <code>username</code> and <code>password</code>.<br>
 		Optional paramater <code>interval</code> may provide custom update interval in seconds for automatic data retrieval. Default is 1800.<br>
-		Optional paramater <code>host</code> may be used to overwrite default host "ftp-outgoing2.dwd.de".<br>
+		Optional paramater <code>host</code> may be used to overwrite default host "download.dwd.de".<br>
 	</ul>
 	<br><br>
 
