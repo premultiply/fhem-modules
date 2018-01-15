@@ -62,17 +62,21 @@ sub DWD_Define($$) {
 	my ($hash, $def) = @_;
 	my @a = split("[ \t][ \t]*", $def);
 
-	return "syntax: define <name> DWD <username> <password> [<interval> [<host>]]"  if ( int(@a) < 4 or int(@a) > 6 );
+	#return "syntax: define <name> DWD <username> <password> [<interval> [<host>]]"  if ( int(@a) < 4 or int(@a) > 6 );
+	return "syntax: define <name> DWD"  if ( int(@a) < 2 );
 
 	my $name = $a[0];
 
 	my $interval = 1800;
-	if ( int(@a) > 4 ) { $interval = $a[4]; }
-	if ( $interval < 300 ) { $interval = 300; }
+	#if ( int(@a) > 4 ) { $interval = $a[4]; }
+	#if ( $interval < 300 ) { $interval = 300; }
 
-	$hash->{USERNAME} = "anonymous"; #$a[2];
-	$hash->{PASSWORD} = ""; #$a[3];
-	$hash->{HOST} = defined($a[5]) ? $a[5] : "download.dwd.de";
+	#$hash->{USERNAME} = $a[2];
+	#$hash->{PASSWORD} = $a[3];
+	#$hash->{HOST} = defined($a[5]) ? $a[5] : "ftp-outgoing2.dwd.de";
+	$hash->{USERNAME} = "anonymous";
+	$hash->{PASSWORD} = "";
+	$hash->{HOST} = "download.dwd.de";
 	$hash->{INTERVAL} = $interval;
 
 	$hash->{STATE} = "Initialized";
@@ -414,11 +418,7 @@ sub ascii_ger($) {
 	<a name="DWDdefine"></a>
 	<b>Define</b>
 	<ul>
-		<code>define &lt;name&gt; DWD &lt;username&gt; &lt;password&gt; [&lt;interval&gt; [&lt;host&gt;]]</code><br>
-		<br>
-		Pass any <code>username</code> and <code>password</code>.<br>
-		Optional paramater <code>interval</code> may provide custom update interval in seconds for automatic data retrieval. Default is 1800.<br>
-		Optional paramater <code>host</code> may be used to overwrite default host "download.dwd.de".<br>
+		<code>define &lt;name&gt; DWD</code><br>
 	</ul>
 	<br><br>
 
