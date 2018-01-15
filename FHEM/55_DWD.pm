@@ -70,8 +70,8 @@ sub DWD_Define($$) {
 	if ( int(@a) > 4 ) { $interval = $a[4]; }
 	if ( $interval < 300 ) { $interval = 300; }
 
-	$hash->{USERNAME} = "anonymous" #$a[2];
-	$hash->{PASSWORD} = "" #$a[3];
+	$hash->{USERNAME} = "anonymous"; #$a[2];
+	$hash->{PASSWORD} = ""; #$a[3];
 	$hash->{HOST} = defined($a[5]) ? $a[5] : "download.dwd.de";
 	$hash->{INTERVAL} = $interval;
 
